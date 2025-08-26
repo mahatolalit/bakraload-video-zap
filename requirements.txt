@@ -1,0 +1,8 @@
+Flask
+flask-limiter
+flask-cors
+flask-talisman
+requests
+yt-dlp
+instaloader
+python-dotenv
