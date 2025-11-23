@@ -11,6 +11,7 @@ import instaloader
 from werkzeug.utils import secure_filename
 import zipfile
 import shutil
+import secrets
 # Security imports
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -19,13 +20,35 @@ from flask_talisman import Talisman
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') #Add your secret key in .env
+
+# Configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max request size
 
 # Security: CORS, Talisman, Limiter
-CORS(app, resources={r"/*": {"origins": "*"}})
-# Disable HTTPS enforcement for local development
-Talisman(app, content_security_policy=None, force_https=False)
-limiter = Limiter(get_remote_address, app=app, default_limits=["30/minute", "200/hour"])
+allowed_origins = os.getenv('ALLOWED_ORIGINS', '*').split(',')
+CORS(app, resources={r"/*": {"origins": allowed_origins}})
+
+# Enable HTTPS enforcement in production
+force_https = os.getenv('FORCE_HTTPS', 'False').lower() == 'true'
+if force_https:
+    Talisman(app, content_security_policy={
+        'default-src': "'self'",
+        'script-src': ["'self'", "'unsafe-inline'"],
+        'style-src': ["'self'", "'unsafe-inline'"],
+    })
+else:
+    Talisman(app, content_security_policy=None, force_https=False)
+
+# Rate limiting
+rate_limit_per_minute = os.getenv('RATE_LIMIT_PER_MINUTE', '30')
+rate_limit_per_hour = os.getenv('RATE_LIMIT_PER_HOUR', '200')
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[f"{rate_limit_per_minute}/minute", f"{rate_limit_per_hour}/hour"],
+    storage_uri=os.getenv('REDIS_URL', 'memory://')
+)
 
 class UniversalDownloader:
     # Allowed URL schemes and regex for validation
@@ -411,7 +434,6 @@ class UniversalDownloader:
             if not file_list:
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 return None, None, 'No downloadable content found.', None
-            print(f"Debug - download_content returning result: {result}")
             return temp_dir, file_list, None, result
         except Exception as e:
             shutil.rmtree(temp_dir, ignore_errors=True)
@@ -438,7 +460,6 @@ def download():
         if not url:
             return jsonify({'status': 'error', 'message': 'No URL provided.'}), 400
         temp_dir, file_list, error, info = downloader.download_content(url, format_type)
-        print(f"Debug - Download result: temp_dir={temp_dir}, files={len(file_list) if file_list else 0}, error={error}, info={info}")
         if error:
             return jsonify({'status': 'error', 'message': error}), 400
         # If only one file, serve it directly
@@ -455,7 +476,6 @@ def download():
             # Use playlist title if available, otherwise default name
             zip_filename = 'download.zip'
             if info and isinstance(info, dict):
-                print(f"Debug - Info dict: {info}")  # Debug
                 if info.get('type') == 'playlist':
                     playlist_title = info.get('playlist_title', 'Playlist')
                     # Sanitize playlist title for filename
@@ -463,7 +483,6 @@ def download():
                     safe_title = safe_title.strip()[:100]  # Limit length
                     if safe_title:
                         zip_filename = f"{safe_title}.zip"
-                    print(f"Debug - Playlist zip filename: {zip_filename}")  # Debug
             
             zip_path = os.path.join(temp_dir, zip_filename)
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -474,7 +493,6 @@ def download():
             def cleanup(response):
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 return response
-            print(f"Debug - Sending file with download_name: {zip_filename}")  # Debug
             return send_file(zip_path, as_attachment=True, download_name=zip_filename, mimetype='application/zip')
     except Exception as e:
         return jsonify({'status': 'error', 'message': 'Server error.'}), 500
@@ -575,7 +593,15 @@ if __name__ == '__main__':
     print("Starting server...")
     print("Supported platforms: YouTube, Instagram, TikTok, Twitter/X, Facebook, Reddit, and more!")
     print("Features: Stories, Reels, Posts, Videos, Bulk downloads")
-    print("Server running on: http://localhost:5000")
+    
+    port = int(os.getenv('PORT', 5000))
+    host = os.getenv('HOST', '0.0.0.0')
+    debug = os.getenv('DEBUG', 'False').lower() == 'true'
+    
+    print(f"Server running on: http://{host}:{port}")
     print("=" * 60)
-    # Never use debug=True in production
-    app.run(host='0.0.0.0', port=5000)
+    
+    if debug:
+        print("WARNING: Running in DEBUG mode. Do not use in production!")
+    
+    app.run(host=host, port=port, debug=debug)
