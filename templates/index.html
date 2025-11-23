@@ -72,10 +72,9 @@
 
         <main class="main-content">
             <div class="card">
-                <div class="tabs">
+                <div class="tabs" style="gap: 5px; margin-inline: 30%;">
                     <button class="tab active" onclick="switchTab('single')">Single</button>
                     <button class="tab" onclick="switchTab('bulk')">Bulk</button>
-                    <button class="tab" onclick="switchTab('downloads')">Downloads</button>
                 </div>
 
                 <!-- Single Download -->
@@ -88,6 +87,15 @@
                             class="input-field" 
                             placeholder="https://www.instagram.com/p/example..."
                         />
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="input-label">Format</label>
+                        <select id="single-format" class="input-field">
+                            <option value="default">Default (Best Quality)</option>
+                            <option value="mp4">MP4 Video</option>
+                            <option value="mp3">MP3 Audio</option>
+                        </select>
                     </div>
                     
                     <button class="btn" onclick="downloadSingle()">
@@ -109,6 +117,15 @@
                         ></textarea>
                     </div>
                     
+                    <div class="input-group">
+                        <label class="input-label">Format</label>
+                        <select id="bulk-format" class="input-field">
+                            <option value="default">Default (Best Quality)</option>
+                            <option value="mp4">MP4 Video</option>
+                            <option value="mp3">MP3 Audio</option>
+                        </select>
+                    </div>
+                    
                     <button class="btn" onclick="downloadBulk()">
                         <span id="bulk-spinner" class="spinner" style="display: none;"></span>
                         <span id="bulk-text">Download All</span>
@@ -117,19 +134,6 @@
                     <div id="bulk-status"></div>
                 </div>
 
-                <!-- Downloads List -->
-                <div id="downloads-tab" class="tab-content">
-                    <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
-                        <button class="btn btn-secondary" onclick="refreshDownloads()">
-                            🔄 Refresh
-                        </button>
-                        <button class="btn btn-danger" onclick="clearDownloads()">
-                            🗑️ Clear All
-                        </button>
-                    </div>
-                    
-                    <div id="downloads-list"></div>
-                </div>
             </div>
 
             <!-- Features Section -->
