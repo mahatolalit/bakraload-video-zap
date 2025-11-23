@@ -10,15 +10,12 @@
             
             document.getElementById(tabName + '-tab').classList.add('active');
             event.target.classList.add('active');
-            
-            if (tabName === 'downloads') {
-                refreshDownloads();
-            }
         }
 
         // Single download
         async function downloadSingle() {
             const url = document.getElementById('single-url').value.trim();
+            const format = document.getElementById('single-format').value;
             const statusDiv = document.getElementById('single-status');
             const spinner = document.getElementById('single-spinner');
             const buttonText = document.getElementById('single-text');
@@ -38,21 +35,38 @@
                 const response = await fetch('/download', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
+                    body: JSON.stringify({ url, format })
                 });
                 
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    let message = `✅ ${result.message}`;
-                    if (result.title) message += `\n📝 ${result.title}`;
-                    if (result.platform) message += `\n🌐 ${result.platform}`;
-                    
-                    showStatus(statusDiv, message, 'success');
-                    document.getElementById('single-url').value = '';
-                } else {
-                    showStatus(statusDiv, `❌ ${result.message}`, 'error');
+                if (!response.ok) {
+                    const result = await response.json();
+                    showStatus(statusDiv, `❌ ${result.message || 'Download failed'}`, 'error');
+                    return;
                 }
+                
+                // Get filename from Content-Disposition header
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'download.zip';
+                if (contentDisposition) {
+                    const matches = /filename[^;=\n]*=(['"]?)([^'"\n]*?)\1/.exec(contentDisposition);
+                    if (matches && matches[2]) {
+                        filename = matches[2];
+                    }
+                }
+                
+                // Download the file
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+                
+                showStatus(statusDiv, '✅ Download started!', 'success');
+                document.getElementById('single-url').value = '';
             } catch (error) {
                 showStatus(statusDiv, `❌ Network error: ${error.message}`, 'error');
             } finally {
@@ -65,6 +79,7 @@
         // Bulk download
         async function downloadBulk() {
             const urlsText = document.getElementById('bulk-urls').value.trim();
+            const format = document.getElementById('bulk-format').value;
             const statusDiv = document.getElementById('bulk-status');
             const spinner = document.getElementById('bulk-spinner');
             const buttonText = document.getElementById('bulk-text');
@@ -91,105 +106,44 @@
                 const response = await fetch('/bulk-download', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ urls })
+                    body: JSON.stringify({ urls, format })
                 });
                 
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    let message = `✅ ${result.message}\n\n`;
-                    result.results.forEach((res, index) => {
-                        const icon = res.status === 'success' ? '✅' : '❌';
-                        message += `${icon} URL ${index + 1}: ${res.message}\n`;
-                    });
-                    
-                    showStatus(statusDiv, message, 'success');
-                    document.getElementById('bulk-urls').value = '';
-                } else {
-                    showStatus(statusDiv, `❌ ${result.message}`, 'error');
+                if (!response.ok) {
+                    const result = await response.json();
+                    showStatus(statusDiv, `❌ ${result.message || 'Bulk download failed'}`, 'error');
+                    return;
                 }
+                
+                // Get filename from Content-Disposition header
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'bakraload_bulk_download.zip';
+                if (contentDisposition) {
+                    const matches = /filename[^;=\n]*=(['"]?)([^'"\n]*?)\1/.exec(contentDisposition);
+                    if (matches && matches[2]) {
+                        filename = matches[2];
+                    }
+                }
+                
+                // Download the file
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+                
+                showStatus(statusDiv, `✅ Bulk download started! (${urls.length} URLs processed)`, 'success');
+                document.getElementById('bulk-urls').value = '';
             } catch (error) {
                 showStatus(statusDiv, `❌ Network error: ${error.message}`, 'error');
             } finally {
                 spinner.style.display = 'none';
                 buttonText.textContent = 'Download All';
                 button.disabled = false;
-            }
-        }
-
-        // Refresh downloads
-        async function refreshDownloads() {
-            const downloadsDiv = document.getElementById('downloads-list');
-            
-            try {
-                const response = await fetch('/downloads');
-                const result = await response.json();
-                
-                if (result.items && result.items.length > 0) {
-                    let html = '<div class="downloads-grid">';
-                    
-                    result.items.forEach(item => {
-                        const isFile = item.type === 'file';
-                        const icon = isFile ? '📄' : '📁';
-                        const size = isFile ? formatFileSize(item.size) : `${item.file_count} files`;
-                        
-                        html += `
-                            <div class="download-item">
-                                <h3 class="download-title">${item.name}</h3>
-                                <p class="download-meta">${icon} ${size}</p>
-                                <div class="download-actions">
-                                    <button class="btn btn-small" onclick="${isFile ? `downloadFile('${item.name}')` : `downloadFolder('${item.name}')`}">
-                                        ${isFile ? '⬇️ Download' : '📦 Download ZIP'}
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    
-                    html += '</div>';
-                    downloadsDiv.innerHTML = html;
-                } else {
-                    downloadsDiv.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">📁</div>
-                            <p>No downloads yet. Start downloading some content!</p>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                downloadsDiv.innerHTML = `<div class="status status-error">Error loading downloads: ${error.message}</div>`;
-            }
-        }
-
-        // Download handlers
-        function downloadFile(filename) {
-            window.open(`/download-file/${encodeURIComponent(filename)}`, '_blank');
-        }
-
-        function downloadFolder(foldername) {
-            window.open(`/download-folder/${encodeURIComponent(foldername)}`, '_blank');
-        }
-
-        // Clear downloads
-        async function clearDownloads() {
-            if (!confirm('Are you sure you want to clear all downloads?')) return;
-            
-            try {
-                const response = await fetch('/clear-downloads', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    alert('✅ All downloads cleared successfully!');
-                    refreshDownloads();
-                } else {
-                    alert(`❌ Error: ${result.message}`);
-                }
-            } catch (error) {
-                alert(`❌ Network error: ${error.message}`);
             }
         }
 
