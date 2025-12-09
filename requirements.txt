@@ -8,3 +8,4 @@ instaloader==4.13.1
 python-dotenv==1.0.0
 gunicorn==21.2.0
 redis==5.0.1
+imageio-ffmpeg==0.4.9

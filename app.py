@@ -58,6 +58,17 @@ class UniversalDownloader:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
+        self.ffmpeg_path = self._get_ffmpeg_path()
+
+    def _get_ffmpeg_path(self):
+        ffmpeg_path = shutil.which('ffmpeg')
+        if not ffmpeg_path:
+            try:
+                import imageio_ffmpeg
+                ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+            except ImportError:
+                pass
+        return ffmpeg_path
 
     def is_valid_url(self, url):
         # Only allow http/https and basic domain validation
@@ -108,7 +119,7 @@ class UniversalDownloader:
         """Download YouTube videos, shorts, playlists"""
         try:
             # Check if ffmpeg is available
-            if not shutil.which('ffmpeg'):
+            if not self.ffmpeg_path:
                 return {'status': 'error', 'message': 'ffmpeg is not installed or not in PATH. 1080p downloads require ffmpeg.'}
             
             # Set format based on user selection
@@ -141,6 +152,9 @@ class UniversalDownloader:
                     'merge_output_format': 'mp4',
                 }
             
+            # Add ffmpeg location
+            ydl_opts['ffmpeg_location'] = self.ffmpeg_path
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 if 'entries' in info:  # Playlist
@@ -248,6 +262,9 @@ class UniversalDownloader:
                     'format': 'best',
                 }
             
+            if self.ffmpeg_path:
+                ydl_opts['ffmpeg_location'] = self.ffmpeg_path
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 return {
@@ -279,6 +296,9 @@ class UniversalDownloader:
                     'writesubtitles': True,
                 }
             
+            if self.ffmpeg_path:
+                ydl_opts['ffmpeg_location'] = self.ffmpeg_path
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 return {
@@ -310,6 +330,9 @@ class UniversalDownloader:
                     'format': 'best',
                 }
             
+            if self.ffmpeg_path:
+                ydl_opts['ffmpeg_location'] = self.ffmpeg_path
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 return {
@@ -339,6 +362,9 @@ class UniversalDownloader:
                     'outtmpl': os.path.join(path, 'Reddit_%(title)s.%(ext)s'),
                 }
             
+            if self.ffmpeg_path:
+                ydl_opts['ffmpeg_location'] = self.ffmpeg_path
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 return {
@@ -369,6 +395,9 @@ class UniversalDownloader:
                     'format': 'best',
                 }
             
+            if self.ffmpeg_path:
+                ydl_opts['ffmpeg_location'] = self.ffmpeg_path
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 return {
