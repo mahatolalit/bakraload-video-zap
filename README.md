@@ -1,5 +1,5 @@
 
-# ![Bakraload Logo](https://img.icons8.com/color-pixels/38/goat.png) Bakraload: Universal Social Media Downloader
+# ![Bakraload Logo](https://img.icons8.com/color-pixels/38/goat.png) Bakraload: Universal Social Media Video Downloader
 
 
 
